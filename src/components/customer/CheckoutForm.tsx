@@ -243,9 +243,9 @@ const CheckoutForm = ({ cartItems, isOpen, onClose, onSubmitOrder, onPixPaymentC
                   </Label>
                 </div>
                 
-                <div className={`flex items-center space-x-3 rounded-lg border border-border/60 p-3 bg-background/40 transition-colors ${!isPixConfigured ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent/20'}`}>
-                  <RadioGroupItem value="pix" id="payment-pix" className="text-primary" disabled={!isPixConfigured} />
-                  <Label htmlFor="payment-pix" className={`flex items-center gap-3 font-normal flex-1 ${!isPixConfigured ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                <div className={`flex items-center space-x-3 rounded-lg border border-border/60 p-3 bg-background/40 transition-colors hover:bg-accent/20`}>
+                  <RadioGroupItem value="pix" id="payment-pix" className="text-primary" />
+                  <Label htmlFor="payment-pix" className="flex items-center gap-3 font-normal flex-1 cursor-pointer">
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
                       <QrCode className="h-4 w-4" />
                     </div>

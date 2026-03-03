@@ -54,6 +54,15 @@ export const MercadoPagoProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Limpar credenciais quando usuário fizer logout
+  React.useEffect(() => {
+    if (!user) {
+      console.log('🔍 Usuário deslogado, limpando credenciais Mercado Pago...');
+      setConfig(null);
+      setHasCredentials(false);
+    }
+  }, [user]);
+
   // Carregar configuração do Supabase por store_id
   const loadConfig = async (storeId?: string) => {
     try {
@@ -109,7 +118,7 @@ export const MercadoPagoProvider: React.FC<{ children: React.ReactNode }> = ({ c
         
         setConfig({
           publicKey: data.public_key,
-          accessToken: '', // Não retorna o access token por segurança
+          accessToken: data.access_token, // Retorna access token para funcionar
         });
         // Marca que há credenciais válidas no banco
         const hasValidCredentials = !!(data.public_key && data.access_token);
