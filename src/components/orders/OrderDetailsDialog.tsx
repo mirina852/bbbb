@@ -221,6 +221,8 @@ const OrderDetailsDialog = ({ order, isOpen, onClose, onUpdateStatus }: OrderDet
               <h3 className="font-medium mb-1 flex items-center gap-1">
                 {order.paymentMethod === 'card' ? (
                   <CreditCard className="h-4 w-4 text-blue-600" />
+                ) : order.paymentMethod === 'pix' ? (
+                  <Package className="h-4 w-4 text-purple-600" />
                 ) : (
                   <Banknote className="h-4 w-4 text-green-600" />
                 )}
@@ -229,6 +231,8 @@ const OrderDetailsDialog = ({ order, isOpen, onClose, onUpdateStatus }: OrderDet
               <p className="text-sm">
                 {order.paymentMethod === 'card' 
                   ? 'Cartão de Crédito/Débito (na entrega)' 
+                  : order.paymentMethod === 'pix'
+                  ? 'PIX'
                   : 'Dinheiro'}
               </p>
             </div>

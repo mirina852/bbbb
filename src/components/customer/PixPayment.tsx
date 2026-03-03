@@ -112,19 +112,44 @@ const PixPayment: React.FC<PixPaymentProps> = ({
     }
   };
 
-  // Timer para mostrar opção de continuar após 2 minutos
-  const [showContinueOption, setShowContinueOption] = useState(false);
-
+  // Listener para atualizar automaticamente quando pagamento for confirmado
   useEffect(() => {
-    if (!isOpen || status !== 'pending') return;
+    if (!isOpen || !orderId) return;
 
-    // Mostrar opção de continuar após 2 minutos
-    const timer = setTimeout(() => {
-      setShowContinueOption(true);
-    }, 2 * 60 * 1000); // 2 minutos
+    const { supabase } = require('@/integrations/supabase/client');
+    
+    // Escutar atualizações do pedido
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`
+        },
+        (payload) => {
+          console.log('Pedido atualizado:', payload.new);
+          
+          // Se o pagamento foi confirmado, atualizar status e fechar modal
+          if (payload.new.payment_status === 'pago' || payload.new.status === 'pago') {
+            setStatus('approved');
+            onPaymentComplete(paymentData?.id || orderId);
+            
+            // Fechar modal após 2 segundos para mostrar sucesso
+            setTimeout(() => {
+              onClose();
+            }, 2000);
+          }
+        }
+      )
+      .subscribe();
 
-    return () => clearTimeout(timer);
-  }, [isOpen, status]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, orderId, paymentData?.id, onPaymentComplete, onClose]);
 
   const createPixPayment = async () => {
     setLoading(true);
@@ -248,6 +273,18 @@ const PixPayment: React.FC<PixPaymentProps> = ({
                 </CardContent>
               </Card>
 
+              {status === 'approved' && (
+                <div className="text-center py-4">
+                  <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
+                    <Check className="h-5 w-5" />
+                    <span className="font-medium">Pagamento confirmado!</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Seu pagamento foi recebido e está sendo processado.
+                  </p>
+                </div>
+              )}
+
               {status === 'pending' && (
                 <>
                   <div className="text-center mb-4">
@@ -315,33 +352,6 @@ const PixPayment: React.FC<PixPaymentProps> = ({
                       </p>
                     </div>
                   </div>
-                  
-                  {showContinueOption && (
-                    <div className="mt-4 pt-4 border-t bg-yellow-50 p-3 rounded-lg">
-                      <div className="text-center mb-2">
-                        <p className="text-sm font-medium text-yellow-800 mb-1">
-                          ⏱️ Já se passaram 2 minutos?
-                        </p>
-                        <p className="text-xs text-yellow-600 mb-3">
-                          Se você já pagou e o sistema ainda não detectou, pode continuar.
-                          Verificaremos o pagamento posteriormente.
-                        </p>
-                      </div>
-                      <Button 
-                        variant="default" 
-                        onClick={() => {
-                          setStatus('approved');
-                          onPaymentComplete(paymentData.id);
-                        }}
-                        className="w-full bg-yellow-600 hover:bg-yellow-700"
-                      >
-                        ⏭️ Continuar mesmo assim
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-2 text-center">
-                        Seu pedido será processado. O pagamento será verificado depois.
-                      </p>
-                    </div>
-                  )}
                 </>
               )}
 

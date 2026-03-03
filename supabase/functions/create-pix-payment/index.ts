@@ -243,7 +243,7 @@ serve(async (req)=>{
       console.log("✅ Credenciais do merchant encontradas para store_id:", targetStoreId);
       
     } else if (isSubscriptionPayment) {
-      // Para assinaturas, usar credenciais da plataforma
+      // Para assinaturas, SEMPRE usar credenciais da plataforma (sua conta)
       const PLATFORM_MERCADOPAGO_TOKEN = Deno.env.get("PLATFORM_MERCADOPAGO_ACCESS_TOKEN");
       const PLATFORM_MERCADOPAGO_PUBLIC_KEY = Deno.env.get("PLATFORM_MERCADOPAGO_PUBLIC_KEY");
       console.log("PLATFORM_MERCADOPAGO_TOKEN definido:", !!PLATFORM_MERCADOPAGO_TOKEN);
@@ -341,6 +341,24 @@ serve(async (req)=>{
       
       console.log("✅ Pagamento PIX criado no Mercado Pago:", paymentId, "com metadata:", paymentMetadata);
       
+      // Salvar external_payment_id no pedido se orderId fornecido (mesmo com API funcionando)
+      if (isOrderPayment && body.orderId) {
+        console.log("Salvando external_payment_id no pedido (API sucesso):", body.orderId, "com paymentId:", paymentId);
+        const { error: updateError } = await supabaseClient
+          .from('orders')
+          .update({ 
+            external_payment_id: paymentId,
+            payment_method: 'pix'
+          })
+          .eq('id', body.orderId);
+          
+        if (updateError) {
+          console.error("Erro ao salvar external_payment_id no pedido:", updateError);
+        } else {
+          console.log("✅ external_payment_id salvo no pedido com sucesso (API)");
+        }
+      }
+      
     } catch (mpError: any) {
       console.error("Erro ao criar pagamento no Mercado Pago:", mpError);
       
@@ -350,6 +368,27 @@ serve(async (req)=>{
       const formattedAmount = Number(amount).toFixed(2).replace(".", "");
       qrCode = `00020126580014br.gov.bcb.pix0136${paymentId}520400005303986540${formattedAmount}5802BR5913NOME_EMPRESA6009SAO_PAULO62070503***6304`;
       qrCodeBase64 = qrCode;
+      
+      // Salvar external_payment_id no pedido se orderId fornecido
+      console.log("Verificando se é pedido e tem orderId:", { isOrderPayment, orderId: body.orderId });
+      if (isOrderPayment && body.orderId) {
+        console.log("Salvando external_payment_id no pedido:", body.orderId, "com paymentId:", paymentId);
+        const { error: updateError } = await supabaseClient
+          .from('orders')
+          .update({ 
+            external_payment_id: paymentId,
+            payment_method: 'pix'
+          })
+          .eq('id', body.orderId);
+          
+        if (updateError) {
+          console.error("Erro ao salvar external_payment_id no pedido:", updateError);
+        } else {
+          console.log("✅ external_payment_id salvo no pedido com sucesso");
+        }
+      } else {
+        console.log("❌ Não salvando external_payment_id - não é pedido ou não tem orderId");
+      }
     }
     
     // 🔹 Salva pagamento no banco (apenas se for assinatura)

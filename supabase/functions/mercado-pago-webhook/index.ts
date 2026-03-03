@@ -49,7 +49,7 @@ serve(async (req) => {
         ["sign"]
       );
       
-      const message = requestId + JSON.stringify(body);
+      const message = ts + JSON.stringify(body);
       const signatureBuffer = await crypto.subtle.sign(
         "HMAC",
         key,
