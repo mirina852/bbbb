@@ -18,16 +18,18 @@ const COLORS = [
   'hsl(35, 100%, 50%)',   // Ready - Orange
   'hsl(260, 100%, 65%)',  // Out for delivery - Purple
   'hsl(218, 91%, 60%)',   // Delivered - Blue
-  'hsl(0, 84%, 60%)'      // Cancelled - Red
+  'hsl(0, 84%, 60%)',     // Cancelled - Red
+  'hsl(160, 84%, 39%)'    // Pago - Emerald Green
 ];
 
 const STATUS_LABELS = {
-  'Pending': 'Pendente',
-  'Preparing': 'Preparando',
-  'Ready': 'Pronto',
-  'Out_for_delivery': '🚚 Saiu para entrega',
-  'Delivered': 'Entregue',
-  'Cancelled': 'Cancelado'
+  'pending': 'Pendente',
+  'preparing': 'Preparando', 
+  'ready': 'Pronto',
+  'out_for_delivery': '🚚 Saiu para entrega',
+  'delivered': 'Entregue',
+  'cancelled': 'Cancelado',
+  'pago': 'Pago'
 };
 
 const OrderStatusChart = ({ data }: OrderStatusChartProps) => {

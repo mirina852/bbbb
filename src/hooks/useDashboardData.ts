@@ -25,10 +25,10 @@ export const useDashboardData = () => {
     totalProducts: 0
   });
 
-  // Buscar pedidos da loja atual
+  // Buscar pedidos da loja atual (incluindo pendentes)
   const { data: orders = [], refetch: refetchOrders } = useQuery({
     queryKey: ['orders', currentStore?.id],
-    queryFn: () => currentStore?.id ? ordersService.getAll(currentStore.id) : Promise.resolve([]),
+    queryFn: () => currentStore?.id ? ordersService.getAllIncludingPending(currentStore.id) : Promise.resolve([]),
     enabled: !!currentStore?.id,
     refetchInterval: 30000, // Refresh every 30 seconds as fallback
   });
