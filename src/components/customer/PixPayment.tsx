@@ -116,48 +116,80 @@ const PixPayment: React.FC<PixPaymentProps> = ({
   useEffect(() => {
     if (!isOpen || !orderId) return;
 
-    const { supabase } = require('@/integrations/supabase/client');
-    
-    // Escutar atualizações do pedido
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${orderId}`
-        },
-        (payload) => {
-          console.log('Pedido atualizado:', payload.new);
-          
-          // Se o pagamento foi confirmado, atualizar status e fechar modal
-          if (payload.new.payment_status === 'pago' || payload.new.status === 'pago') {
-            setStatus('approved');
-            onPaymentComplete(paymentData?.id || orderId);
+    let supabase: any;
+    let channel: any;
+
+    const setupListener = async () => {
+      const { supabase: sb } = await import('@/integrations/supabase/client');
+      supabase = sb;
+      
+      // Escutar atualizações do pedido
+      channel = supabase
+        .channel(`order-${orderId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'orders',
+            filter: `id=eq.${orderId}`
+          },
+          (payload) => {
+            console.log('Pedido atualizado:', payload.new);
             
-            // Fechar modal após 2 segundos para mostrar sucesso
-            setTimeout(() => {
-              onClose();
-            }, 2000);
+            // Se o pagamento foi confirmado, atualizar status e fechar modal
+            if (payload.new.payment_status === 'pago' || payload.new.status === 'pago') {
+              console.log('✅ Pagamento confirmado! Atualizando UI...');
+              
+              try {
+                setStatus('approved');
+                
+                // Chamar callback de pagamento completo com segurança
+                if (onPaymentComplete) {
+                  onPaymentComplete(paymentData?.id || orderId);
+                }
+                
+                // Fechar modal após 2 segundos para mostrar sucesso
+                setTimeout(() => {
+                  if (onClose) {
+                    onClose();
+                  }
+                }, 2000);
+              } catch (error) {
+                console.error('❌ Erro ao processar pagamento confirmado:', error);
+                // Mesmo com erro, fechar modal após 3 segundos
+                setTimeout(() => {
+                  if (onClose) {
+                    onClose();
+                  }
+                }, 3000);
+              }
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    };
+
+    setupListener();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [isOpen, orderId, paymentData?.id, onPaymentComplete, onClose]);
 
   const createPixPayment = async () => {
+    console.log('🚀 Iniciando createPixPayment...');
     setLoading(true);
+    
     try {
       console.log('Creating PIX payment with data:', { amount, customerName, customerPhone, description, storeId, storeSlug, orderId });
       
       const { supabase } = await import('@/integrations/supabase/client');
+      console.log('✅ Supabase client imported');
       
+      console.log('📡 Chamando função create-pix-payment...');
       const { data, error } = await supabase.functions.invoke('create-pix-payment', {
         body: {
           amount,
@@ -171,44 +203,63 @@ const PixPayment: React.FC<PixPaymentProps> = ({
           orderId
         }
       });
+      
+      console.log('📥 Resposta da função:', { data, error });
 
-      if (error) throw new Error(error.message || 'Erro ao criar pagamento PIX');
-      if (!data) throw new Error('Nenhum dado retornado da função');
+      if (error) {
+        console.error('❌ Erro da função:', error);
+        throw new Error(error.message || 'Erro ao criar pagamento PIX');
+      }
+      
+      if (!data) {
+        console.error('❌ Nenhum dado retornado');
+        throw new Error('Nenhum dado retornado da função');
+      }
 
-      console.log('Resposta da função:', data);
+      console.log('✅ Dados recebidos:', data);
 
       // A função retorna { success: true, data: {...} }
       const paymentInfo = data.success ? data.data : data;
       
       if (!paymentInfo || !paymentInfo.qr_code) {
-        console.error('QR Code não encontrado na resposta:', paymentInfo);
+        console.error('❌ QR Code não encontrado na resposta:', paymentInfo);
         throw new Error('QR Code não foi gerado');
       }
 
+      console.log('✅ Payment info válido:', paymentInfo);
       setPaymentData(paymentInfo);
       setStatus('pending');
       setTimeLeft(900); // 15 minutos
 
-      console.log('Gerando QR Code visual para:', paymentInfo.qr_code);
-      const qrDataUrl = await QRCode.toDataURL(paymentInfo.qr_code, {
-        width: 256,
-        margin: 2,
-        color: { dark: '#000000', light: '#FFFFFF' }
-      });
-      setQrCodeDataUrl(qrDataUrl);
-      console.log('QR Code visual gerado com sucesso');
+      console.log('🎨 Gerando QR Code visual para:', paymentInfo.qr_code);
+      
+      try {
+        const qrDataUrl = await QRCode.toDataURL(paymentInfo.qr_code, {
+          width: 256,
+          margin: 2,
+          color: { dark: '#000000', light: '#FFFFFF' }
+        });
+        setQrCodeDataUrl(qrDataUrl);
+        console.log('✅ QR Code visual gerado com sucesso');
+      } catch (qrError) {
+        console.error('❌ Erro ao gerar QR Code visual:', qrError);
+        // Mesmo com erro no QR, mostrar dados do pagamento
+        toast.error('Erro ao gerar QR Code, mas pagamento foi criado');
+      }
 
     } catch (error: any) {
-      console.error('Error creating PIX payment:', error);
+      console.error('💥 ERRO COMPLETO EM createPixPayment:', error);
+      console.error('Stack:', error?.stack);
       
       // Verificar se é erro de credenciais não configuradas
       if (error.message?.includes('Configure suas credenciais') || 
           error.message?.includes('MERCHANT_CREDENTIALS_NOT_FOUND')) {
         toast.error('Pagamento PIX não disponível. O estabelecimento precisa configurar suas credenciais do Mercado Pago.');
       } else {
-        toast.error('Erro ao gerar pagamento PIX');
+        toast.error(`Erro ao gerar pagamento PIX: ${error.message || 'Erro desconhecido'}`);
       }
     } finally {
+      console.log('🏁 Finalizando createPixPayment...');
       setLoading(false);
     }
   };
